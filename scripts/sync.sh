@@ -65,9 +65,38 @@ sync_user() {
 
     if [ -f "$cael_state/wallpaper/current" ]; then
         rm -f "$THEME_DIR/assets/background-$user" 2>/dev/null || true
-        cp -f "$cael_state/wallpaper/current" "$THEME_DIR/assets/background-$user"
+        local wp_path
+        if [ -L "$cael_state/wallpaper/current" ]; then
+            wp_path=$(readlink -f "$cael_state/wallpaper/current")
+        else
+            wp_path=$(cat "$cael_state/wallpaper/current" 2>/dev/null)
+        fi
+        [ -z "$wp_path" ] || [ ! -f "$wp_path" ] && wp_path="$cael_state/wallpaper/current"
+        local wp_ext="${wp_path##*.}"
+        local wp_ext_lower
+        wp_ext_lower=$(echo "$wp_ext" | tr '[:upper:]' '[:lower:]')
+
+        case "$wp_ext_lower" in
+            mp4|webm|mkv|avi|mov|gif)
+                local wp_stem="${wp_path##*/}"
+                wp_stem="${wp_stem%.*}"
+                local thumb_dir
+                thumb_dir=$(dirname "$wp_path")
+                local thumb_path="$thumb_dir/.thumbs/${wp_stem}.jpg"
+                if [ -f "$thumb_path" ]; then
+                    cp -f "$thumb_path" "$THEME_DIR/assets/background-$user"
+                    echo "  ✓ [$user] wallpaper (video → thumbnail)"
+                else
+                    cp -f "$wp_path" "$THEME_DIR/assets/background-$user"
+                    echo "  ✓ [$user] wallpaper (video, no thumbnail)"
+                fi
+                ;;
+            *)
+                cp -f "$wp_path" "$THEME_DIR/assets/background-$user"
+                echo "  ✓ [$user] wallpaper"
+                ;;
+        esac
         chmod 644 "$THEME_DIR/assets/background-$user"
-        echo "  ✓ [$user] wallpaper"
     fi
 
     # --- Merge: theme.conf (defaults) + user.conf (overrides) + colors ---
